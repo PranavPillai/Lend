@@ -1,0 +1,145 @@
+pragma solidity ^0.4.0;
+
+contract Lend {
+    
+    modifier onlyBy (address _account) {
+        require(msg.sender == _account);
+        _;
+    }
+    
+    struct Purchase {
+        uint principal;
+        uint time;
+    }
+    
+    struct Investment {
+        uint amount;
+        uint time;
+    }
+    
+    struct User {
+        bool initialized; // specifies whether or not an address has been used
+        uint totalInvested;
+        uint totalBorrowed; 
+        Purchase[] purchases; // store all loans user has gotten
+        Investment[] investments; // store all investments user has made
+        uint investmentNum; // counter for investment ID
+        uint purchaseNum; // counter for purchases
+        uint creditLimit; 
+        uint interestRate;
+    }
+    
+    struct Request {
+        uint amount;
+        address requester;
+        uint time;
+    }
+    
+    uint fundBalance;
+    uint currTime;
+    uint investmentCap;
+    uint withdrawalFee;
+    uint minTime;
+    address creator;
+    mapping(address => User) Users;
+    address[] Investors;
+    uint LookUpTableCounter;
+    
+    function Lend(uint _investmentCap, uint _minTime, uint _withdrawalFee) 
+    public {
+        fundBalance = 0;
+        currTime = now;
+        investmentCap = _investmentCap;
+        creator = msg.sender;
+        minTime = _minTime;
+        withdrawalFee = _withdrawalFee;
+        LookUpTableCounter = 0;
+    }
+    
+    function invest() payable public {
+        if(msg.value < 0) throw;
+        fundBalance += msg.value;
+        uint currInvestment = Users[msg.sender].investmentNum;
+        Users[msg.sender].totalInvested += msg.value;
+        Users[msg.sender].investments[currInvestment] = Investment(msg.value, now);
+        Users[msg.sender].totalInvested += msg.value;
+        Users[msg.sender].investmentNum++;
+        Investors[LookUpTableCounter] = msg.sender;
+        LookUpTableCounter++;
+    }
+    
+    function divest(uint _amount) payable public {
+        require (_amount < Users[msg.sender].totalInvested);
+        uint i = 0;
+        while(_amount > 0) {
+            if(Users[msg.sender].investments[i].time + minTime > now) {
+                uint deducted = Users[msg.sender].investments[i].amount * (1 - withdrawalFee);
+                if (deducted <= _amount) {
+                    Users[msg.sender].investments[i].amount = 0;
+                    Users[msg.sender].totalInvested -= deducted;
+                    _amount -= deducted;
+                    msg.sender.transfer(deducted);
+                    i++;
+                } else {
+                    Users[msg.sender].investments[i].amount -= _amount * (1 + withdrawalFee);
+                    Users[msg.sender].totalInvested -= _amount * (1 + withdrawalFee);
+                    _amount = 0;
+                    msg.sender.transfer(_amount);
+                }
+            } else {
+                uint currInvestment = Users[msg.sender].investments[i].amount;
+                if (currInvestment <= _amount) {
+                    Users[msg.sender].investments[i].amount = 0;
+                    Users[msg.sender].totalInvested -= currInvestment;
+                    _amount -= currInvestment;
+                    msg.sender.transfer(currInvestment);
+                    i++;
+                } else {
+                    Users[msg.sender].investments[i].amount -= _amount;
+                    Users[msg.sender].totalInvested -= _amount;
+                    _amount = 0;
+                    msg.sender.transfer(_amount);
+                }
+            }
+        }
+    }
+    
+    function getBalance() public returns (uint) {
+        return Users[msg.sender].totalInvested - Users[msg.sender].totalBorrowed; 
+    }
+    
+    function addUser() public {
+        if (Users[msg.sender].initialized == false) {
+            Users[msg.sender] = User(true,0,0,new Purchase[](0),new Investment[](0),0,0,0,0);
+        }
+    }
+    
+    function request() public {
+        //send request to our server
+    }
+    
+    // pay on credit
+    function charge(uint _amount, address _payTo) payable public {
+        if (Users[msg.sender].totalBorrowed + _amount <= Users[msg.sender].creditLimit) {
+            Users[msg.sender].totalBorrowed += _amount;
+            uint purchaseNum = Users[msg.sender].purchaseNum;
+            Users[msg.sender].purchases[purchaseNum] = Purchase(_amount, now);
+            _payTo.transfer(_amount);
+        }
+        else throw;
+    } 
+    
+    function repay() payable public{
+        uint r;
+        if (now < currTime + 30 days) {
+            r = 1;
+        } else r = 1 + Users[msg.sender].interestRate;
+        Users[msg.sender].totalBorrowed = Users[msg.sender].totalBorrowed * r;
+        Users[msg.sender].totalBorrowed -= msg.value;
+    }
+    
+    function updateTime() onlyBy(creator) {
+        currTime = now;
+    }
+    
+}
