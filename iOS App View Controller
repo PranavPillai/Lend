@@ -1,0 +1,150 @@
+//
+//  ViewController.swift
+//  Lender
+//
+//  Created by Nishita Jain on 9/9/17.
+//  Copyright © 2017 Nishita Jain. All rights reserved.
+//
+
+import UIKit
+
+class ViewController: UIViewController {
+    
+    var textinput : String = ""
+    
+    var amount: Int?
+    
+    let generalAlert = UIAlertController(title: "Thank you.", message: " ", preferredStyle: .alert)
+    
+    let depositAlert = UIAlertController(title: "Deposit Amount", message: "Please enter your desired deposit amount:", preferredStyle: .alert)
+    
+    let withdrawAlert = UIAlertController(title: "Withdraw Amount", message: "Please enter how much you would like to withdraw from accounts:", preferredStyle: .alert)
+
+    let requestAlert = UIAlertController(title: "Request Amount", message: "Please enter your desired request amount:", preferredStyle: .alert)
+    
+    let payOffAlert = UIAlertController(title: "Pay Existing Loan Amount", message: "Please enter your desired amount to pay back debt:", preferredStyle: .alert)
+
+    func isStringAnInt(string: String) -> Bool {
+        return Int(string) != nil
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        depositAlert.addTextField { (textField) in
+            textField.text = " "
+        }
+        
+        depositAlert.addAction(UIAlertAction(title: "OK", style: .default, handler: { [weak depositAlert] (_) in
+            let textField = depositAlert?.textFields![0]
+            print("Text field: \(textField?.text)")
+            
+            self.textinput = String((textField?.text)!)
+            
+            print(self.textinput)
+            
+            var request2 = URLRequest(url: URL(string: "http://api.reimaginebanking.com/accounts/59b3695da73e4942cdafdc2a/deposits?key=602b23085261c38c64831685772efafd")!)
+            
+            request2.httpMethod = "POST"
+            
+            let postString2 = "amount="+self.textinput+"&medium=balance"
+            
+            request2.httpBody = postString2.data(using: .utf8)
+            
+            let task3 = URLSession.shared.dataTask(with: request2) { (data, response, error) in
+                guard let data = data, error == nil else {
+                    print("error")
+                    return
+                }
+                
+                if let httpStatus = response as? HTTPURLResponse, httpStatus.statusCode != 201 {
+                    print("statusCode should be 201, but is \(httpStatus.statusCode)")
+                }
+                
+                let json = try! JSONSerialization.jsonObject(with: data, options: []) as! [String: Any]
+                print(json)
+                
+                
+                
+                if let amount = json["amount"] as? Int {
+                    self.amount = amount
+                    print(amount)
+                }
+                
+                
+            }
+            task3.resume()
+        }))
+        
+        withdrawAlert.addTextField { (textField) in
+            textField.text = "withdraw amount"
+        }
+        
+        withdrawAlert.addAction(UIAlertAction(title: "OK", style: .default, handler: { [weak withdrawAlert] (_) in
+            let textField = withdrawAlert?.textFields![0]
+            print("Text field: \(textField?.text)")
+        }))
+        
+        requestAlert.addTextField { (textField) in
+            textField.text = "request amount"
+        }
+        
+        requestAlert.addAction(UIAlertAction(title: "OK", style: .default, handler: { [weak requestAlert] (_) in
+            let textField = requestAlert?.textFields![0]
+            print("Text field: \(textField?.text)")
+        }))
+        
+        
+        payOffAlert.addTextField { (textField) in
+            textField.text = "pay off amount"
+        }
+        
+        
+        payOffAlert.addAction(UIAlertAction(title: "OK", style: .default, handler: { [weak payOffAlert] (_) in
+            let textField = payOffAlert?.textFields![0]
+            print("Text field: \(textField?.text)")
+        }))
+    }
+
+    @IBAction func depositAction(_ sender: Any) {
+        self.present(depositAlert, animated: true, completion: nil)
+    }
+    
+    @IBAction func withdrawAction(_ sender: Any) {
+        self.present(withdrawAlert, animated: true, completion: nil)
+    }
+    
+    @IBAction func requestAction(_ sender: Any) {
+        self.present(requestAlert, animated: true, completion: nil)
+    }
+    
+    @IBAction func PayAction(_ sender: Any) {
+        self.present(payOffAlert, animated: true, completion: nil)
+        
+        let testURL = URL(string: "http://api.reimaginebanking.com/accounts/59b36499a73e4942cdafdc24/loans?key=602b23085261c38c64831685772efafd")
+        
+        // guard let url  = testURL else {return}
+        
+        let task = URLSession.shared.dataTask(with: testURL!){
+            (data, response, error) in
+            
+            do {
+                let jsonObj = try! JSONSerialization.jsonObject(with: data!, options: []) as? [String : Any]
+                if ((jsonObj == nil)) {
+                    self.generalAlert.message = "You have no outstanding loans"
+                    self.present(self.generalAlert, animated: true, completion: nil)
+                }
+            }
+        }
+        
+        task.resume()
+
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+
+
+}
+
