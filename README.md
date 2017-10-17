@@ -1,2 +1,2 @@
 # Lend
-CrowdFunded Lines of Credit
+The Crowdfunded Credit Card
